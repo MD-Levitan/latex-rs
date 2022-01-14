@@ -9,7 +9,7 @@ use equations::{Align, Equation};
 use failure::Error;
 use lists::{Item, List};
 use paragraph::{Paragraph, ParagraphElement};
-use section::Section;
+use section::SectionElement;
 use std::ops::Deref;
 
 /// A trait which uses the [Visitor Pattern] to recursively visit each node in
@@ -41,7 +41,7 @@ pub trait Visitor {
     fn visit_element(&mut self, elem: &Element) -> Result<(), Error> {
         match *elem {
             Element::Para(ref p) => self.visit_paragraph(p)?,
-            Element::Section(ref s) => self.visit_section(s)?,
+            Element::Section(ref s) => self.visit_sectioning_element(s)?,
             Element::UserDefined(ref s) => self.visit_user_defined_line(s)?,
             Element::Align(ref equations) => self.visit_align(equations)?,
 
@@ -87,7 +87,7 @@ pub trait Visitor {
     }
 
     /// Visit a `Section` and then recursively visit each of its `Element`s.
-    fn visit_section(&mut self, section: &Section) -> Result<(), Error> {
+    fn visit_sectioning_element<T: SectionElement>(&mut self, section: &T) -> Result<(), Error> {
         for elem in section.iter() {
             self.visit_element(elem)?;
         }

@@ -5,7 +5,7 @@ use std::slice::Iter;
 use equations::Align;
 use lists::List;
 use paragraph::Paragraph;
-use section::Section;
+use section::{Chapter, Part, Section, Subsection};
 
 /// The root Document node.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -72,6 +72,24 @@ impl Deref for Document {
 /// `some_paragraph.into()`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Element {
+    /// A Part - one of sectioning elements, has -1 level.
+    ///
+    /// # Note
+    ///
+    /// Part is available only in `report` and `book` documents.
+    Part(Part),
+
+    /// A Chapter - one of sectioning elements, has 0 level.
+    ///
+    /// # Note
+    ///
+    /// Chapter is available only in `report` and `book` documents.
+    Chapter(Chapter),
+    /// A section - one of sectioning elements, has 2 level.
+    Section(Section),
+    /// A subsection - one of sectioning elements, has 3 level.
+    Subsection(Subsection),
+
     /// A bare paragraph.
     ///
     /// # Note
@@ -80,8 +98,7 @@ pub enum Element {
     /// instead add it to a `Section` so that if you are walking the AST later
     /// on things make sense.
     Para(Paragraph),
-    /// A section.
-    Section(Section),
+
     /// The table of contents.
     TableOfContents,
     /// The title page.
@@ -191,11 +208,11 @@ impl Display for DocumentClass {
 }
 
 impl Extend<Element> for Document {
-    fn extend<T: IntoIterator<Item=Element>>(&mut self, iter:T) {
-    for elem in iter {
-      self.push(elem);
+    fn extend<T: IntoIterator<Item = Element>>(&mut self, iter: T) {
+        for elem in iter {
+            self.push(elem);
+        }
     }
-  }
 }
 
 /// An element of the document's preamble.
@@ -212,7 +229,7 @@ pub enum PreambleElement {
         name: String,
         args_num: Option<usize>,
         default_arg: Option<String>,
-        definition: String
+        definition: String,
     },
     /// An escape hatch for including an arbitrary bit of TeX in a preamble.
     UserDefined(String),
@@ -251,23 +268,16 @@ impl Preamble {
     }
 
     /// Interface of most commonly used way to write a `/newcommand` line in latex.  
-    /// If you want to create `/newcommand` in 
-    /// other ways(like add default argument or do not assign the num of arguments), 
-    /// please use `push` method in `Preamble` struct. 
-    pub fn new_command(
-        &mut self,
-        name: &str,
-        args_num: usize,
-        definition: &str
-    ) -> &mut Self {
-        self.contents.push(
-            PreambleElement::NewCommand {
-                name: String::from(name),
-                args_num: Some(args_num),
-                default_arg: None,
-                definition: String::from(definition)
-            }
-        );
+    /// If you want to create `/newcommand` in
+    /// other ways(like add default argument or do not assign the num of arguments),
+    /// please use `push` method in `Preamble` struct.
+    pub fn new_command(&mut self, name: &str, args_num: usize, definition: &str) -> &mut Self {
+        self.contents.push(PreambleElement::NewCommand {
+            name: String::from(name),
+            args_num: Some(args_num),
+            default_arg: None,
+            definition: String::from(definition),
+        });
         self
     }
 
@@ -293,13 +303,12 @@ impl Preamble {
         self.contents.push(element.into());
         self
     }
-
 }
 
 impl Extend<PreambleElement> for Preamble {
-    fn extend<T: IntoIterator<Item=PreambleElement>>(&mut self, iter:T) {
-    for elem in iter {
-      self.push(elem);
+    fn extend<T: IntoIterator<Item = PreambleElement>>(&mut self, iter: T) {
+        for elem in iter {
+            self.push(elem);
+        }
     }
-  }
 }

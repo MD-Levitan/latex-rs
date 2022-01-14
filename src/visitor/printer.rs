@@ -6,7 +6,7 @@ use equations::{Align, Equation};
 use failure::Error;
 use lists::{Item, List};
 use paragraph::{Paragraph, ParagraphElement};
-use section::Section;
+use section::SectionElement;
 
 /// Print a document to a string.
 pub fn print(doc: &Document) -> Result<String, Error> {
@@ -109,7 +109,7 @@ where
                     name,
                     args_num,
                     default_arg,
-                    definition
+                    definition,
                 } => {
                     write!(self.writer, r"\newcommand{{\{}}}", name)?;
                     if let Some(num) = args_num {
@@ -121,7 +121,7 @@ where
                     writeln!(self.writer, r"{{")?;
                     writeln!(self.writer, "{}", definition)?;
                     writeln!(self.writer, r"}}")?;
-                },
+                }
                 PreambleElement::UserDefined(s) => writeln!(self.writer, r"{}", s)?,
             }
         }
@@ -162,7 +162,10 @@ where
     fn visit_element(&mut self, element: &Element) -> Result<(), Error> {
         match *element {
             Element::Para(ref p) => self.visit_paragraph(p)?,
-            Element::Section(ref s) => self.visit_section(s)?,
+            Element::Part(ref s) => self.visit_sectioning_element(s)?,
+            Element::Chapter(ref s) => self.visit_sectioning_element(s)?,
+            Element::Section(ref s) => self.visit_sectioning_element(s)?,
+            Element::Subsection(ref s) => self.visit_sectioning_element(s)?,
             Element::TableOfContents => writeln!(self.writer, r"\tableofcontents")?,
             Element::TitlePage => writeln!(self.writer, r"\maketitle")?,
             Element::ClearPage => writeln!(self.writer, r"\clearpage")?,
@@ -185,8 +188,17 @@ where
         Ok(())
     }
 
-    fn visit_section(&mut self, section: &Section) -> Result<(), Error> {
-        writeln!(self.writer, r"\section{{{}}}", section.name)?;
+    fn visit_sectioning_element<T: SectionElement>(&mut self, section: &T) -> Result<(), Error> {
+        writeln!(
+            self.writer,
+            r"\{}{}{{{}}}",
+            section.get_section_name(),
+            match section.numbered() {
+                true => "",
+                false => "*",
+            },
+            section.get_name()
+        )?;
 
         if !section.is_empty() {
             // Make sure there's space between the \section{...} and the next line
@@ -234,7 +246,7 @@ where
 mod tests {
     use self::ParagraphElement::*;
     use super::*;
-    use {Align, DocumentClass, Equation, ListKind, Paragraph, Section};
+    use {Align, Chapter, DocumentClass, Equation, ListKind, Paragraph, Part, Section, Subsection};
 
     #[test]
     fn create_simple_paragraph() {
@@ -354,7 +366,7 @@ mod tests {
         let mut buffer = Vec::new();
         let mut preamble = Preamble::default();
         preamble.new_command("Love", 2, "#1 loves #2");
-        
+
         {
             let mut printer = Printer::new(&mut buffer);
             printer.visit_preamble(&preamble).unwrap();
@@ -371,15 +383,13 @@ mod tests {
 "#;
         let mut buffer = Vec::new();
         let mut preamble = Preamble::default();
-        preamble.push(
-            PreambleElement::NewCommand {
-                name: String::from("Love"),
-                args_num: Some(3),
-                default_arg: Some(String::from("likes")),
-                definition: String::from("#2 #1 #3")
-            }
-        );
-        
+        preamble.push(PreambleElement::NewCommand {
+            name: String::from("Love"),
+            args_num: Some(3),
+            default_arg: Some(String::from("likes")),
+            definition: String::from("#2 #1 #3"),
+        });
+
         {
             let mut printer = Printer::new(&mut buffer);
             printer.visit_preamble(&preamble).unwrap();
@@ -467,7 +477,52 @@ mod tests {
 
         {
             let mut printer = Printer::new(&mut buffer);
-            printer.visit_section(&section).unwrap();
+            printer.visit_sectioning_element(&section).unwrap();
+        }
+
+        assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
+    }
+
+    #[test]
+    fn render_blank_subsection() {
+        let should_be = "\\subsection{First Section}\n";
+        let mut buffer = Vec::new();
+
+        let section = Subsection::new("First Section");
+
+        {
+            let mut printer = Printer::new(&mut buffer);
+            printer.visit_sectioning_element(&section).unwrap();
+        }
+
+        assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
+    }
+
+    #[test]
+    fn render_blank_part() {
+        let should_be = "\\part{First Section}\n";
+        let mut buffer = Vec::new();
+
+        let section = Part::new("First Section");
+
+        {
+            let mut printer = Printer::new(&mut buffer);
+            printer.visit_sectioning_element(&section).unwrap();
+        }
+
+        assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
+    }
+
+    #[test]
+    fn render_blank_chapter() {
+        let should_be = "\\chapter{First Section}\n";
+        let mut buffer = Vec::new();
+
+        let section = Chapter::new("First Section");
+
+        {
+            let mut printer = Printer::new(&mut buffer);
+            printer.visit_sectioning_element(&section).unwrap();
         }
 
         assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
@@ -489,7 +544,30 @@ Hello World!
 
         {
             let mut printer = Printer::new(&mut buffer);
-            printer.visit_section(&section).unwrap();
+            printer.visit_sectioning_element(&section).unwrap();
+        }
+
+        assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
+    }
+
+    #[test]
+    fn section_non_numbered() {
+        let should_be = r#"\section*{First Section}
+
+Lorem Ipsum...
+
+Hello World!
+
+"#;
+        let mut buffer = Vec::new();
+
+        let mut section = Section::new("First Section");
+        section.numbered = false;
+        section.push("Lorem Ipsum...").push("Hello World!");
+
+        {
+            let mut printer = Printer::new(&mut buffer);
+            printer.visit_sectioning_element(&section).unwrap();
         }
 
         assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
