@@ -83,6 +83,7 @@ where
     fn visit_paragraph_element(&mut self, element: &ParagraphElement) -> Result<(), Error> {
         match *element {
             ParagraphElement::Plain(ref s) => write!(self.writer, "{}", s)?,
+            ParagraphElement::Link(ref s) => write!(self.writer, "\\href{{{}}}{{{}}}", s.0, s.1)?,
             ParagraphElement::InlineMath(ref s) => write!(self.writer, "${}$", s)?,
             ParagraphElement::Bold(ref e) => {
                 write!(self.writer, r"\textbf{{")?;
@@ -195,16 +196,17 @@ where
     }
 
     fn visit_sectioning_element<T: SectionElement>(&mut self, section: &T) -> Result<(), Error> {
-        writeln!(
+        write!(
             self.writer,
-            r"\{}{}{{{}}}",
+            r"\{}{}{{",
             section.get_section_name(),
             match section.numbered() {
                 true => "",
                 false => "*",
-            },
-            section.get_name()
+            }
         )?;
+        self.visit_paragraph_element(section.get_name())?;
+        writeln!(self.writer, "}}")?;
 
         if !section.is_empty() {
             // Make sure there's space between the \section{...} and the next line
@@ -590,6 +592,31 @@ Hello World!
 
         let mut section = Section::new("First Section");
         section.numbered = false;
+        section.push("Lorem Ipsum...").push("Hello World!");
+
+        {
+            let mut printer = Printer::new(&mut buffer);
+            printer.visit_sectioning_element(&section).unwrap();
+        }
+
+        assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
+    }
+
+    #[test]
+    fn section_with_link() {
+        let should_be = r#"\section{\href{some_link}{https:\\example.com}}
+
+Lorem Ipsum...
+
+Hello World!
+
+"#;
+        let mut buffer = Vec::new();
+
+        let mut section = Section::new_formatted(ParagraphElement::Link((
+            "some_link".to_owned(),
+            "https:\\\\example.com".to_owned(),
+        )));
         section.push("Lorem Ipsum...").push("Hello World!");
 
         {

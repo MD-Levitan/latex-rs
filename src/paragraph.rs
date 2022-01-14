@@ -77,6 +77,8 @@ pub enum ParagraphElement {
     Bold(Box<ParagraphElement>),
     /// Italicized text.
     Italic(Box<ParagraphElement>),
+    /// Hyperlink - (description, link)
+    Link((String, String)),
     /// An inline mathematical expression.
     InlineMath(String),
 }
@@ -99,8 +101,30 @@ impl ParagraphElement {
     }
 }
 
+impl Default for ParagraphElement {
+    fn default() -> Self {
+        ParagraphElement::from("")
+    }
+}
+
 impl<'a> From<&'a str> for ParagraphElement {
     fn from(other: &'a str) -> Self {
         ParagraphElement::Plain(other.to_string())
+    }
+}
+
+impl std::fmt::Display for ParagraphElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            ParagraphElement::Plain(ref s) => write!(f, "{}", s)?,
+            ParagraphElement::Link(ref s) => write!(f, "\\href{{{}}}{{{}}}", s.0, s.1)?,
+            ParagraphElement::InlineMath(ref s) => write!(f, "${}$", s)?,
+            ParagraphElement::Bold(ref e) => write!(f, r"\textbf{{{}}}", e)?,
+            ParagraphElement::Italic(ref e) => {
+                write!(f, r"\textit{{{}}}", e)?;
+            }
+        }
+
+        Ok(())
     }
 }

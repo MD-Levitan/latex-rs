@@ -1,4 +1,5 @@
 use document::Element;
+use paragraph::ParagraphElement;
 use std::slice::Iter;
 
 /// A trait to represent all types of Section
@@ -10,7 +11,7 @@ pub trait SectionElement {
     /// Check if empty
     fn is_empty(&self) -> bool;
     /// Get name of element
-    fn get_name(&self) -> &str;
+    fn get_name(&self) -> &ParagraphElement;
     /// Get name of section
     fn get_section_name(&self) -> &str;
 }
@@ -25,7 +26,7 @@ macro_rules! create_section_type {
         #[derive(Clone, Debug, Default, PartialEq)]
         pub struct $section_name {
             /// The name of the section.
-            pub name: String,
+            pub name: ParagraphElement,
             /// Elements inside
             elements: Vec<Element>,
             /// Type of section
@@ -38,7 +39,17 @@ macro_rules! create_section_type {
             /// Create a new section with the specified name.
             pub fn new(name: &str) -> Self {
                 Self {
-                    name: name.to_string(),
+                    name: ParagraphElement::from(name),
+                    elements: Default::default(),
+                    sectioning_name: $section_tex.to_owned(),
+                    numbered: true,
+                }
+            }
+
+            /// Create a new section with the specified and formatted name.
+            pub fn new_formatted(name: ParagraphElement) -> Self {
+                Self {
+                    name: name,
                     elements: Default::default(),
                     sectioning_name: $section_tex.to_owned(),
                     numbered: true,
@@ -60,7 +71,7 @@ macro_rules! create_section_type {
                 self.numbered
             }
 
-            fn get_name(&self) -> &str {
+            fn get_name(&self) -> &ParagraphElement {
                 &self.name
             }
 
