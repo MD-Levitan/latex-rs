@@ -50,7 +50,12 @@ where
             }
             // write a full document
             _ => {
-                writeln!(self.writer, r"\documentclass{{{}}}", doc.class)?;
+                writeln!(
+                    self.writer,
+                    r"\documentclass[{}]{{{}}}",
+                    doc.arguments.join(","),
+                    doc.class
+                )?;
 
                 self.visit_preamble(&doc.preamble)?;
 
@@ -400,7 +405,7 @@ mod tests {
 
     #[test]
     fn render_empty_document() {
-        let should_be = r#"\documentclass{article}
+        let should_be = r#"\documentclass[]{article}
 \begin{document}
 \end{document}
 "#;
@@ -408,6 +413,27 @@ mod tests {
 
         let doc = Document::new(DocumentClass::Article);
 
+        {
+            let mut printer = Printer::new(&mut buffer);
+            printer.visit_document(&doc).unwrap();
+        }
+
+        assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
+    }
+
+    #[test]
+    fn render_empty_document_with_params() {
+        let should_be = r#"\documentclass[12pt,oneside,a4paper]{article}
+\begin{document}
+\end{document}
+"#;
+        let mut buffer = Vec::new();
+
+        let mut doc = Document::new(DocumentClass::Article);
+        doc.arguments = ["12pt", "oneside", "a4paper"]
+            .iter()
+            .map(|x| x.to_string())
+            .collect();
         {
             let mut printer = Printer::new(&mut buffer);
             printer.visit_document(&doc).unwrap();

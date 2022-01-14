@@ -14,6 +14,8 @@ pub struct Document {
     pub class: DocumentClass,
     /// The `Document`'s preamble.
     pub preamble: Preamble,
+    /// Document arguments, like `[12pt,oneside,a4paper]`
+    pub arguments: Vec<String>,
     /// The various elements inside this `Document`.
     elements: Vec<Element>,
 }
