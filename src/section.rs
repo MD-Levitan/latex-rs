@@ -85,5 +85,6 @@ create_section_type!(Part, "part");
 create_section_type!(Chapter, "chapter");
 create_section_type!(Section, "section");
 create_section_type!(Subsection, "subsection");
+create_section_type!(Subsubsection, "subsubsection");
 // create_section_type!(Paragraph, "paragraph");
 // create_section_type!(Subparagraph, "subparagraph");

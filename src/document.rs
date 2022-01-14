@@ -91,6 +91,8 @@ pub enum Element {
     Section(Section),
     /// A subsection - one of sectioning elements, has 3 level.
     Subsection(Subsection),
+    /// A subsubsection - one of sectioning elements, has 4 level.
+    Subsubsection(Subsection),
 
     /// A bare paragraph.
     ///

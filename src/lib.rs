@@ -117,6 +117,6 @@ pub use document::{Document, DocumentClass, Element, Preamble, PreambleElement};
 pub use equations::{Align, Equation};
 pub use lists::{Item, List, ListKind};
 pub use paragraph::{Paragraph, ParagraphElement};
-pub use section::{Chapter, Part, Section, SectionElement, Subsection};
+pub use section::{Chapter, Part, Section, SectionElement, Subsection, Subsubsection};
 
 pub use visitor::{print, Visitor};

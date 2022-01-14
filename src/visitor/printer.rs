@@ -171,6 +171,7 @@ where
             Element::Chapter(ref s) => self.visit_sectioning_element(s)?,
             Element::Section(ref s) => self.visit_sectioning_element(s)?,
             Element::Subsection(ref s) => self.visit_sectioning_element(s)?,
+            Element::Subsubsection(ref s) => self.visit_sectioning_element(s)?,
             Element::TableOfContents => writeln!(self.writer, r"\tableofcontents")?,
             Element::TitlePage => writeln!(self.writer, r"\maketitle")?,
             Element::ClearPage => writeln!(self.writer, r"\clearpage")?,
