@@ -1,6 +1,8 @@
 extern crate latex;
 
-use latex::{print, Align, Document, DocumentClass, Element, Equation, List, ListKind, Section};
+use latex::{
+    print, Align, AlignEquation, Document, DocumentClass, Element, Latex, List, ListKind, Section,
+};
 
 // const COMPLEX: &'static str = include_str!("complex.tex");
 
@@ -33,7 +35,10 @@ fn first_section() -> Section {
     let mut equations = Align::new();
     equations
         .push("y &= mx + c")
-        .push(Equation::with_label("quadratic", "y &= a x^2 + bx + c"));
+        .push(AlignEquation::with_label(
+            "quadratic",
+            "y &= a x^2 + bx + c",
+        ));
 
     section_1
         .push("Please refer to the equations below:")
@@ -41,10 +46,10 @@ fn first_section() -> Section {
 
     let mut objectives = List::new(ListKind::Enumerate);
     objectives
-        .push(r"Demonstrate how to use the \textit{latex} library.")
-        .push("Create a reasonably complex document")
-        .push("???")
-        .push("PROFIT!");
+        .push_text(r"Demonstrate how to use the \textit{latex} library.")
+        .push_text("Create a reasonably complex document")
+        .push_text("???")
+        .push_text("PROFIT!");
 
     section_1.push("Here are our objectives:").push(objectives);
 

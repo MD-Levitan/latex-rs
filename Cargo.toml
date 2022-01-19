@@ -12,5 +12,5 @@ documentation = "https://docs.rs/latex"
 categories = ["template-engine", "text-processing"]
 
 [dependencies]
-failure = "0.1.5"
+anyhow = "1.0.13"
 doc-comment = "0.3.3"

@@ -4,8 +4,12 @@ use std::slice::Iter;
 
 use equations::Align;
 use lists::List;
-use paragraph::Paragraph;
-use section::{Chapter, Part, Section, Subsection};
+use section::{
+    Chapter, Container, Paragraph, Part, Section, Subparagraph, Subsection, Subsubsection,
+};
+use text::Text;
+
+use crate::Writable;
 
 /// The root Document node.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -66,120 +70,6 @@ impl Deref for Document {
     }
 }
 
-/// The major elements in a `Document`, representing each type of possible
-/// node.
-///
-/// For convenience, any variant which wraps a struct will implement `From` for
-/// that struct. Meaning you can create an `Element::Para` node just by using
-/// `some_paragraph.into()`.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Element {
-    /// A Part - one of sectioning elements, has -1 level.
-    ///
-    /// # Note
-    ///
-    /// Part is available only in `report` and `book` documents.
-    Part(Part),
-
-    /// A Chapter - one of sectioning elements, has 0 level.
-    ///
-    /// # Note
-    ///
-    /// Chapter is available only in `report` and `book` documents.
-    Chapter(Chapter),
-    /// A section - one of sectioning elements, has 2 level.
-    Section(Section),
-    /// A subsection - one of sectioning elements, has 3 level.
-    Subsection(Subsection),
-    /// A subsubsection - one of sectioning elements, has 4 level.
-    Subsubsection(Subsection),
-
-    /// A bare paragraph.
-    ///
-    /// # Note
-    ///
-    /// You probably don't want to add a paragraph directly to your document,
-    /// instead add it to a `Section` so that if you are walking the AST later
-    /// on things make sense.
-    Para(Paragraph),
-
-    /// The table of contents.
-    TableOfContents,
-    /// The title page.
-    TitlePage,
-    /// Clear the page.
-    ClearPage,
-    /// An `align` environment for containing a bunch of equations.
-    Align(Align),
-
-    /// A generic environment and its lines.
-    Environment(String, Vec<String>),
-
-    /// Any other element.
-    ///
-    /// This can be used as an escape hatch if the particular element you want
-    /// isn't directly supported or if you need to do something which isn't
-    /// easily expressed any other way. You simply provide the raw string you
-    /// want and it will be rendered unchanged in the final document.
-    UserDefined(String),
-    /// A list.
-    List(List),
-    /// A generic include statement
-    Input(String),
-
-    // Add a dummy element so we can expand later on without breaking stuff
-    #[doc(hidden)]
-    _Other,
-}
-
-impl From<Paragraph> for Element {
-    fn from(other: Paragraph) -> Self {
-        Element::Para(other)
-    }
-}
-
-impl<'a> From<&'a str> for Element {
-    /// Create an arbitrary unescaped element from a string.
-    fn from(other: &'a str) -> Self {
-        Element::Para(Paragraph::from(other))
-    }
-}
-
-impl From<List> for Element {
-    fn from(other: List) -> Self {
-        Element::List(other)
-    }
-}
-
-impl From<Align> for Element {
-    fn from(other: Align) -> Self {
-        Element::Align(other)
-    }
-}
-
-impl From<Section> for Element {
-    fn from(other: Section) -> Self {
-        Element::Section(other)
-    }
-}
-
-impl<S, I> From<(S, I)> for Element
-where
-    S: AsRef<str>,
-    I: IntoIterator,
-    I::Item: AsRef<str>,
-{
-    /// Converts a tuple of name and a list of lines into an
-    /// `Element::Environment`.
-    fn from(other: (S, I)) -> Self {
-        let (name, lines) = other;
-        Element::Environment(
-            name.as_ref().to_string(),
-            lines.into_iter().map(|s| s.as_ref().to_string()).collect(),
-        )
-    }
-}
-
 /// The kind of Document being generated.
 #[derive(Clone, Debug, PartialEq)]
 #[allow(missing_docs)]
@@ -216,6 +106,39 @@ impl Extend<Element> for Document {
         for elem in iter {
             self.push(elem);
         }
+    }
+}
+
+impl Writable for Document {
+    fn write_to<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        match self.class {
+            // only go through childs if we have a partial document
+            DocumentClass::Part => {
+                for element in self.iter() {
+                    element.write_to(writer)?;
+                }
+            }
+            // write a full document
+            _ => {
+                writeln!(
+                    writer,
+                    r"\documentclass[{}]{{{}}}",
+                    self.arguments.join(","),
+                    self.class
+                )?;
+
+                self.preamble.write_to(writer)?;
+
+                writeln!(writer, r"\begin{{document}}")?;
+
+                for element in self.iter() {
+                    element.write_to(writer)?;
+                }
+
+                writeln!(writer, r"\end{{document}}")?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -314,5 +237,208 @@ impl Extend<PreambleElement> for Preamble {
         for elem in iter {
             self.push(elem);
         }
+    }
+}
+
+impl Writable for Preamble {
+    fn write_to<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        for item in self.iter() {
+            match item {
+                PreambleElement::UsePackage {
+                    package: pkg,
+                    argument: None,
+                } => writeln!(writer, r"\usepackage{{{}}}", pkg)?,
+                PreambleElement::UsePackage {
+                    package: pkg,
+                    argument: Some(arg),
+                } => writeln!(writer, r"\usepackage[{}]{{{}}}", arg, pkg)?,
+                PreambleElement::NewCommand {
+                    name,
+                    args_num,
+                    default_arg,
+                    definition,
+                } => {
+                    write!(writer, r"\newcommand{{\{}}}", name)?;
+                    if let Some(num) = args_num {
+                        write!(writer, r"[{}]", num)?;
+                    }
+                    if let Some(arg) = default_arg {
+                        write!(writer, r"[{}]", arg)?;
+                    }
+                    writeln!(writer, r"{{")?;
+                    writeln!(writer, "{}", definition)?;
+                    writeln!(writer, r"}}")?;
+                }
+                PreambleElement::UserDefined(s) => writeln!(writer, r"{}", s)?,
+            }
+        }
+
+        if !self.is_empty() && (self.title.is_some() || self.author.is_some()) {
+            writeln!(writer)?;
+        }
+
+        if let Some(ref title) = self.title {
+            writeln!(writer, r"\title{{{}}}", title)?;
+        }
+        if let Some(ref author) = self.author {
+            writeln!(writer, r"\author{{{}}}", author)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// The major elements in a `Document`, representing each type of possible
+/// node.
+///
+/// For convenience, any variant which wraps a struct will implement `From` for
+/// that struct. Meaning you can create an `Element::Para` node just by using
+/// `some_paragraph.into()`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Element {
+    /// A Part - one of sectioning elements, has -1 level.
+    ///
+    /// # Note
+    ///
+    /// Part is available only in `report` and `book` documents.
+    Part(Part),
+    /// A Chapter - one of sectioning elements, has 0 level.
+    ///
+    /// # Note
+    ///
+    /// Chapter is available only in `report` and `book` documents.
+    Chapter(Chapter),
+    /// A section - one of sectioning elements, has 1 level.
+    Section(Section),
+    /// A subsection - one of sectioning elements, has 2 level.
+    Subsection(Subsection),
+    /// A subsubsection - one of sectioning elements, has 3 level.
+    Subsubsection(Subsubsection),
+    /// A paragraph - one of sectioning elements, has 4 level.
+    Paragraph(Paragraph),
+    /// A subparagraph - one of sectioning elements, has 5 level.
+    Subparagraph(Subparagraph),
+    /// A bare text.
+    ///
+    /// # Note
+    ///
+    /// You probably don't want to add a text directly to your document,
+    /// instead add it to a `Section` so that if you are walking the AST later
+    /// on things make sense.
+    Text(Text),
+    /// Container for `Elements`. Container doesn't provide any formatting,
+    /// it can be used just for storing Elements
+    Container(Container),
+
+    /// The table of contents.
+    TableOfContents,
+    /// The title page.
+    TitlePage,
+    /// Clear the page.
+    ClearPage,
+    /// An `align` environment for containing a bunch of equations.
+    Align(Align),
+
+    /// A generic environment and its lines.
+    Environment(String, Vec<String>),
+
+    /// Any other element.
+    ///
+    /// This can be used as an escape hatch if the particular element you want
+    /// isn't directly supported or if you need to do something which isn't
+    /// easily expressed any other way. You simply provide the raw string you
+    /// want and it will be rendered unchanged in the final document.
+    UserDefined(String),
+    /// A list.
+    List(List),
+    /// A generic include statement
+    Input(String),
+
+    // Add a dummy element so we can expand later on without breaking stuff
+    #[doc(hidden)]
+    _Other,
+}
+
+impl From<Text> for Element {
+    fn from(other: Text) -> Self {
+        Element::Text(other)
+    }
+}
+
+impl<'a> From<&'a str> for Element {
+    /// Create an arbitrary unescaped element from a string.
+    fn from(other: &'a str) -> Self {
+        Element::Text(Text::from(other))
+    }
+}
+
+impl From<List> for Element {
+    fn from(other: List) -> Self {
+        Element::List(other)
+    }
+}
+
+impl From<Align> for Element {
+    fn from(other: Align) -> Self {
+        Element::Align(other)
+    }
+}
+
+impl From<Section> for Element {
+    fn from(other: Section) -> Self {
+        Element::Section(other)
+    }
+}
+
+impl<S, I> From<(S, I)> for Element
+where
+    S: AsRef<str>,
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    /// Converts a tuple of name and a list of lines into an
+    /// `Element::Environment`.
+    fn from(other: (S, I)) -> Self {
+        let (name, lines) = other;
+        Element::Environment(
+            name.as_ref().to_string(),
+            lines.into_iter().map(|s| s.as_ref().to_string()).collect(),
+        )
+    }
+}
+
+impl Writable for Element {
+    fn write_to<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        match *self {
+            Element::Text(ref p) => p.write_to(writer)?,
+            Element::Part(ref p) => p.write_to(writer)?,
+            Element::Chapter(ref p) => p.write_to(writer)?,
+            Element::Section(ref p) => p.write_to(writer)?,
+            Element::Subsection(ref p) => p.write_to(writer)?,
+            Element::Subsubsection(ref p) => p.write_to(writer)?,
+            Element::Paragraph(ref p) => p.write_to(writer)?,
+            Element::Subparagraph(ref p) => p.write_to(writer)?,
+            Element::Container(ref p) => p.write_to(writer)?,
+
+            Element::TableOfContents => writeln!(writer, r"\tableofcontents")?,
+            Element::TitlePage => writeln!(writer, r"\maketitle")?,
+            Element::ClearPage => writeln!(writer, r"\clearpage")?,
+            Element::UserDefined(ref s) => writeln!(writer, "{}", s)?,
+            Element::Align(ref p) => p.write_to(writer)?,
+
+            Element::Environment(ref name, ref lines) => {
+                writeln!(writer, r"\begin{{{}}}", name)?;
+                for line in lines {
+                    writeln!(writer, "{}", line)?;
+                }
+                writeln!(writer, r"\end{{{}}}", name)?;
+            }
+            Element::List(ref list) => list.write_to(writer)?,
+            Element::Input(ref s) => writeln!(writer, "\\input{{{}}}", s)?,
+
+            Element::_Other => unreachable!(),
+        }
+
+        Ok(())
     }
 }

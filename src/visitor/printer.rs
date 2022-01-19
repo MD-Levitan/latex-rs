@@ -1,12 +1,14 @@
 use std::io::Write;
 
+use crate::Container;
+
 use super::Visitor;
 use document::{Document, DocumentClass, Element, Preamble, PreambleElement};
 use equations::{Align, Equation};
 use failure::Error;
 use lists::{Item, List};
-use paragraph::{Paragraph, ParagraphElement};
 use section::SectionElement;
+use text::{Text, TextElement};
 
 /// Print a document to a string.
 pub fn print(doc: &Document) -> Result<String, Error> {
@@ -71,28 +73,27 @@ where
         Ok(())
     }
 
-    fn visit_paragraph(&mut self, para: &Paragraph) -> Result<(), Error> {
+    fn visit_text(&mut self, para: &Text) -> Result<(), Error> {
         for elem in para.iter() {
-            self.visit_paragraph_element(elem)?;
+            self.visit_text_element(elem)?;
         }
-        writeln!(self.writer)?;
 
         Ok(())
     }
 
-    fn visit_paragraph_element(&mut self, element: &ParagraphElement) -> Result<(), Error> {
+    fn visit_text_element(&mut self, element: &TextElement) -> Result<(), Error> {
         match *element {
-            ParagraphElement::Plain(ref s) => write!(self.writer, "{}", s)?,
-            ParagraphElement::Link(ref s) => write!(self.writer, "\\href{{{}}}{{{}}}", s.0, s.1)?,
-            ParagraphElement::InlineMath(ref s) => write!(self.writer, "${}$", s)?,
-            ParagraphElement::Bold(ref e) => {
+            TextElement::Plain(ref s) => write!(self.writer, "{}", s)?,
+            TextElement::Link(ref s) => write!(self.writer, "\\href{{{}}}{{{}}}", s.0, s.1)?,
+            TextElement::InlineMath(ref s) => write!(self.writer, "${}$", s)?,
+            TextElement::Bold(ref e) => {
                 write!(self.writer, r"\textbf{{")?;
-                self.visit_paragraph_element(e)?;
+                self.visit_text_element(e)?;
                 write!(self.writer, "}}")?;
             }
-            ParagraphElement::Italic(ref e) => {
+            TextElement::Italic(ref e) => {
                 write!(self.writer, r"\textit{{")?;
-                self.visit_paragraph_element(e)?;
+                self.visit_text_element(e)?;
                 write!(self.writer, "}}")?;
             }
         }
@@ -161,18 +162,27 @@ where
     }
 
     fn visit_list_item(&mut self, item: &Item) -> Result<(), Error> {
-        writeln!(self.writer, r"\item {}", item.0)?;
+        write!(self.writer, r"\item ")?;
+
+        for element in item.0.iter() {
+            self.visit_element(element)?;
+        }
+
+        writeln!(self.writer, "")?;
         Ok(())
     }
 
     fn visit_element(&mut self, element: &Element) -> Result<(), Error> {
         match *element {
-            Element::Para(ref p) => self.visit_paragraph(p)?,
+            Element::Text(ref t) => self.visit_text(t)?,
             Element::Part(ref s) => self.visit_sectioning_element(s)?,
             Element::Chapter(ref s) => self.visit_sectioning_element(s)?,
             Element::Section(ref s) => self.visit_sectioning_element(s)?,
+            Element::Container(ref s) => self.visit_container(s)?,
             Element::Subsection(ref s) => self.visit_sectioning_element(s)?,
             Element::Subsubsection(ref s) => self.visit_sectioning_element(s)?,
+            Element::Paragraph(ref s) => self.visit_sectioning_element(s)?,
+            Element::Subparagraph(ref s) => self.visit_sectioning_element(s)?,
             Element::TableOfContents => writeln!(self.writer, r"\tableofcontents")?,
             Element::TitlePage => writeln!(self.writer, r"\maketitle")?,
             Element::ClearPage => writeln!(self.writer, r"\clearpage")?,
@@ -195,6 +205,21 @@ where
         Ok(())
     }
 
+    fn visit_container(&mut self, container: &Container) -> Result<(), Error> {
+        if !container.is_empty() {
+            writeln!(self.writer)?;
+        }
+
+        for element in container.iter() {
+            self.visit_element(element)?;
+            // LaTeX needs an empty line between Texts/elements otherwise
+            // it'll automatically concatenate them together
+            writeln!(self.writer)?;
+        }
+
+        Ok(())
+    }
+
     fn visit_sectioning_element<T: SectionElement>(&mut self, section: &T) -> Result<(), Error> {
         write!(
             self.writer,
@@ -205,7 +230,7 @@ where
                 false => "*",
             }
         )?;
-        self.visit_paragraph_element(section.get_name())?;
+        self.visit_text(section.get_name())?;
         writeln!(self.writer, "}}")?;
 
         if !section.is_empty() {
@@ -215,7 +240,7 @@ where
 
         for element in section.iter() {
             self.visit_element(element)?;
-            // LaTeX needs an empty line between paragraphs/elements otherwise
+            // LaTeX needs an empty line between Texts/elements otherwise
             // it'll automatically concatenate them together
             writeln!(self.writer)?;
         }
@@ -252,55 +277,55 @@ where
 
 #[cfg(test)]
 mod tests {
-    use self::ParagraphElement::*;
+    use self::TextElement::*;
     use super::*;
-    use {Align, Chapter, DocumentClass, Equation, ListKind, Paragraph, Part, Section, Subsection};
+    use {Align, Chapter, DocumentClass, Equation, ListKind, Part, Section, Subsection, Text};
 
     #[test]
-    fn create_simple_paragraph() {
-        let should_be = "Hello World\n";
+    fn create_simple_text() {
+        let should_be = "Hello World";
         let mut buffer = Vec::new();
 
-        let mut para = Paragraph::new();
+        let mut para = Text::new();
         para.push_text("Hello World");
 
         {
             let mut printer = Printer::new(&mut buffer);
-            printer.visit_paragraph(&para).unwrap();
+            printer.visit_text(&para).unwrap();
         }
 
         assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
     }
 
     #[test]
-    fn paragraph_with_bold_text() {
-        let should_be = "Hello \\textbf{World}\n";
+    fn text_with_bold_text() {
+        let should_be = "Hello \\textbf{World}";
         let mut buffer = Vec::new();
 
-        let mut para = Paragraph::new();
+        let mut para = Text::new();
         para.push_text("Hello ");
         para.push(Bold(Box::new(Plain("World".to_string()))));
 
         {
             let mut printer = Printer::new(&mut buffer);
-            printer.visit_paragraph(&para).unwrap();
+            printer.visit_text(&para).unwrap();
         }
 
         assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
     }
 
     #[test]
-    fn paragraph_with_italic_text() {
-        let should_be = "Hello \\textit{World}\n";
+    fn text_with_italic_text() {
+        let should_be = "Hello \\textit{World}";
         let mut buffer = Vec::new();
 
-        let mut para = Paragraph::new();
+        let mut para = Text::new();
         para.push_text("Hello ");
         para.push(Italic(Box::new(Plain("World".to_string()))));
 
         {
             let mut printer = Printer::new(&mut buffer);
-            printer.visit_paragraph(&para).unwrap();
+            printer.visit_text(&para).unwrap();
         }
 
         assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
@@ -308,17 +333,17 @@ mod tests {
 
     #[test]
     fn inline_code() {
-        let should_be = "Hello $\\lambda$ World!\n";
+        let should_be = "Hello $\\lambda$ World!";
         let mut buffer = Vec::new();
 
-        let mut para = Paragraph::new();
+        let mut para = Text::new();
         para.push_text("Hello ")
             .push(InlineMath(r"\lambda".to_string()))
             .push_text(" World!");
 
         {
             let mut printer = Printer::new(&mut buffer);
-            printer.visit_paragraph(&para).unwrap();
+            printer.visit_text(&para).unwrap();
         }
 
         assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
@@ -487,7 +512,7 @@ mod tests {
         let mut buffer = Vec::new();
 
         let mut list = List::new(ListKind::Itemize);
-        list.push("This").push("is").push("a").push("list!");
+        list.push_text("This").push_text("is").push_text("a").push_text("list!");
 
         {
             let mut printer = Printer::new(&mut buffer);
@@ -558,13 +583,11 @@ mod tests {
     }
 
     #[test]
-    fn section_with_paragraphs() {
+    fn section_with_texts() {
         let should_be = r#"\section{First Section}
 
 Lorem Ipsum...
-
 Hello World!
-
 "#;
         let mut buffer = Vec::new();
 
@@ -584,9 +607,7 @@ Hello World!
         let should_be = r#"\section*{First Section}
 
 Lorem Ipsum...
-
 Hello World!
-
 "#;
         let mut buffer = Vec::new();
 
@@ -607,16 +628,16 @@ Hello World!
         let should_be = r#"\section{\href{some_link}{https:\\example.com}}
 
 Lorem Ipsum...
-
 Hello World!
-
 "#;
         let mut buffer = Vec::new();
 
-        let mut section = Section::new_formatted(ParagraphElement::Link((
+        let mut name = Text::new();
+        name.push(TextElement::Link((
             "some_link".to_owned(),
             "https:\\\\example.com".to_owned(),
         )));
+        let mut section = Section::new_formatted(name);
         section.push("Lorem Ipsum...").push("Hello World!");
 
         {

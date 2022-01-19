@@ -104,19 +104,69 @@
 
 #![deny(missing_docs)]
 
-extern crate failure;
-
 mod document;
 mod equations;
 mod lists;
-mod paragraph;
 mod section;
-mod visitor;
+mod text;
+//mod visitor;
 
 pub use document::{Document, DocumentClass, Element, Preamble, PreambleElement};
-pub use equations::{Align, Equation};
+pub use equations::{Align, AlignEquation, Equation};
 pub use lists::{Item, List, ListKind};
-pub use paragraph::{Paragraph, ParagraphElement};
-pub use section::{Chapter, Part, Section, SectionElement, Subsection, Subsubsection};
+pub use section::{Chapter, Container, Part, Section, SectionElement, Subsection, Subsubsection};
+pub use text::{Text, TextElement};
 
-pub use visitor::{print, Visitor};
+use std::io::{Error, Write};
+
+/// Trait for Latex objections to print/write document
+/// To replace `Visitor` conception.
+pub trait Writable {
+    /// Writes `self` as latex to `writer`
+    ///
+    /// # Arguments
+    /// * `writer` - destination writer
+    ///
+    /// # Returns
+    /// `()` or `std::io::Error` if an error occurred during writing
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), Error>;
+}
+
+/// Struct for creating Latex
+pub struct Latex<W: Write> {
+    writer: W,
+}
+
+impl<W: Write> Latex<W> {
+    /// Creates a new `Latex` struct
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - Destination for Latex data
+    pub fn new(writer: W) -> Self {
+        Self { writer }
+    }
+
+    /// Returns the underlying `writer` and consumes the object
+    pub fn into_inner(self) -> W {
+        self.writer
+    }
+
+    /// Writes a `Writable` elemnt to the document
+    ///
+    /// # Returns
+    /// `()` or `std::io::Error` if an error occurred during writing to the underlying writer
+    pub fn write<T: Writable>(&mut self, element: &T) -> Result<(), Error> {
+        element.write_to(&mut self.writer)?;
+        Ok(())
+    }
+}
+
+/// Print a document to a string.
+pub fn print(doc: &Document) -> Result<String, anyhow::Error> {
+    let mut buffer = Vec::new();
+    let mut latex = Latex::new(&mut buffer);
+    latex.write(doc)?;
+    let rendered = String::from_utf8(buffer)?;
+    Ok(rendered)
+}

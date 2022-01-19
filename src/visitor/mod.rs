@@ -8,9 +8,9 @@ use document::{Document, DocumentClass, Element, Preamble};
 use equations::{Align, Equation};
 use failure::Error;
 use lists::{Item, List};
-use paragraph::{Paragraph, ParagraphElement};
-use section::SectionElement;
+use section::{Container, SectionElement};
 use std::ops::Deref;
+use text::{Text, TextElement};
 
 /// A trait which uses the [Visitor Pattern] to recursively visit each node in
 /// a `Document`.
@@ -40,7 +40,7 @@ pub trait Visitor {
     /// you may end up accidentally ignoring half your document!
     fn visit_element(&mut self, elem: &Element) -> Result<(), Error> {
         match *elem {
-            Element::Para(ref p) => self.visit_paragraph(p)?,
+            Element::Text(ref p) => self.visit_text(p)?,
             Element::Section(ref s) => self.visit_sectioning_element(s)?,
             Element::UserDefined(ref s) => self.visit_user_defined_line(s)?,
             Element::Align(ref equations) => self.visit_align(equations)?,
@@ -62,8 +62,8 @@ pub trait Visitor {
         Ok(())
     }
 
-    /// Visit an element in a `Paragraph` (e.g. `Italic`, `InlineCode`).
-    fn visit_paragraph_element(&mut self, element: &ParagraphElement) -> Result<(), Error> {
+    /// Visit an element in a `Text` (e.g. `Italic`, `InlineCode`).
+    fn visit_text_element(&mut self, element: &TextElement) -> Result<(), Error> {
         Ok(())
     }
 
@@ -77,10 +77,15 @@ pub trait Visitor {
         Ok(())
     }
 
-    /// Visit a paragraph, and every `ParagraphElement` in it.
-    fn visit_paragraph(&mut self, paragraph: &Paragraph) -> Result<(), Error> {
-        for elem in &paragraph.elements {
-            self.visit_paragraph_element(elem)?;
+    /// Visit a container.
+    fn visit_container(&mut self, container: &Container) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Visit a Text, and every `TextElement` in it.
+    fn visit_text(&mut self, text: &Text) -> Result<(), Error> {
+        for elem in &text.elements {
+            self.visit_text_element(elem)?;
         }
 
         Ok(())
