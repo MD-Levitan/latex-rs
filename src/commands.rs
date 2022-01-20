@@ -50,4 +50,36 @@ mod tests {
 
         test_element(&[&command], should_be)
     }
+
+    #[test]
+    fn render_table_maketitle() {
+        let should_be = "\\maketitle\n";
+        let command: Command = Command::TitlePage;
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_table_clearpage() {
+        let should_be = "\\clearpage\n";
+        let command: Command = Command::ClearPage;
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_table_bigskip() {
+        let should_be = "\\bigskip\n";
+        let command: Command = Command::BigSkip;
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_table_newpage() {
+        let should_be = "\\newpage\n";
+        let command: Command = Command::NewPage;
+
+        test_element(&[&command], should_be)
+    }
 }

@@ -88,7 +88,19 @@ impl List {
         self
     }
 
-    /// Add an text as `Element::Text` to the list.
+    /// Add an element to the list.
+    pub fn push_element<E>(&mut self, item: E) -> &mut Self
+    where
+        E: Into<Element>,
+    {
+        let mut container = Container::new();
+        container.push(item);
+
+        self.items.push(Item(container));
+        self
+    }
+
+    /// Add a text as `Element::Text` to the list.
     pub fn push_text<P>(&mut self, item: P) -> &mut Self
     where
         P: Into<Text>,
@@ -113,7 +125,9 @@ impl Writable for List {
         writeln!(writer, r"\begin{{{}}}", env)?;
 
         for item in self.iter() {
+            write!(writer, "\\item ")?;
             (**item).write_to(writer)?;
+            write!(writer, "\n")?;
         }
 
         writeln!(writer, r"\end{{{}}}", env)?;
@@ -124,10 +138,14 @@ impl Writable for List {
 
 #[cfg(test)]
 mod tests {
-    use crate::Element;
-    use crate::Text;
+    use crate::{Container, Element, List, ListKind, Text};
+    use crate::{Latex, Writable};
 
-    use super::*;
+    fn test_element<W: Writable>(elements: &[&W], real: &str) {
+        let mut generator = Latex::new(Vec::new());
+        elements.iter().for_each(|&e| generator.write(e).unwrap());
+        assert_eq!(String::from_utf8(generator.into_inner()).unwrap(), real);
+    }
 
     #[test]
     fn push_item_to_list() {
@@ -140,33 +158,41 @@ mod tests {
         assert_eq!(list.items.len(), 1);
     }
 
-    // #[test]
-    // fn render_empty_itemize_list() {
-    //     let should_be = "\\begin{itemize}\n\\end{itemize}\n";
-    //     let mut buffer = Vec::new();
+    #[test]
+    fn render_empty_itemize_list() {
+        let should_be = "\\begin{itemize}\n\\end{itemize}\n";
+        let list = List::new(ListKind::Itemize);
+        test_element(&[&list], should_be)
+    }
 
-    //     let list = List::new(ListKind::Itemize);
+    #[test]
+    fn render_enumerated_list() {
+        let should_be = "\\begin{enumerate}\n\\end{enumerate}\n";
+        let list = List::new(ListKind::Enumerate);
+        test_element(&[&list], should_be)
+    }
 
-    //     {
-    //         let mut printer = Printer::new(&mut buffer);
-    //         printer.visit_list(&list).unwrap();
-    //     }
+    #[test]
+    fn render_itemize_list_simple() {
+        let should_be =
+            "\\begin{itemize}\n\\item Apple\n\\item Orange\n\\item Cherry\n\\end{itemize}\n";
+        let mut list = List::new(ListKind::Itemize);
+        list.push_text("Apple");
+        list.push_text("Orange");
+        list.push_text("Cherry");
 
-    //     assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
-    // }
+        test_element(&[&list], should_be)
+    }
 
-    // #[test]
-    // fn render_enumerated_list() {
-    //     let should_be = "\\begin{enumerate}\n\\end{enumerate}\n";
-    //     let mut buffer = Vec::new();
+    #[test]
+    fn render_enumerated_list_simple() {
+        let should_be =
+            "\\begin{enumerate}\n\\item Apple\n\\item Orange\n\\item Cherry\n\\end{enumerate}\n";
+        let mut list = List::new(ListKind::Enumerate);
+        list.push_text("Apple");
+        list.push_text("Orange");
+        list.push_text("Cherry");
 
-    //     let list = List::new(ListKind::Enumerate);
-
-    //     {
-    //         let mut printer = Printer::new(&mut buffer);
-    //         printer.visit_list(&list).unwrap();
-    //     }
-
-    //     assert_eq!(String::from_utf8(buffer).unwrap(), should_be);
-    // }
+        test_element(&[&list], should_be)
+    }
 }

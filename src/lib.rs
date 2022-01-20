@@ -106,6 +106,7 @@
 
 mod commands;
 mod document;
+mod enviroment;
 mod equations;
 mod lists;
 mod section;
@@ -113,6 +114,7 @@ mod text;
 
 pub use commands::*;
 pub use document::{Document, DocumentClass, Element, Preamble, PreambleElement};
+pub use enviroment::Environment;
 pub use equations::{Align, AlignEquation, Equation};
 pub use lists::{Item, List, ListKind};
 pub use section::{Chapter, Container, Part, Section, SectionElement, Subsection, Subsubsection};

@@ -175,10 +175,6 @@ impl Container {
 
 impl Writable for Container {
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        if !self.is_empty() {
-            writeln!(writer)?;
-        }
-
         for element in self.iter() {
             element.write_to(writer)?;
         }

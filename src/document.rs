@@ -3,6 +3,7 @@ use std::ops::Deref;
 use std::slice::Iter;
 
 use commands::Command;
+use enviroment::Environment;
 use equations::Align;
 use lists::List;
 use section::{
@@ -340,7 +341,7 @@ pub enum Element {
     Align(Align),
 
     /// A generic environment and its lines.
-    Environment(String, Vec<String>),
+    Environment(Environment),
 
     /// Any other element.
     ///
@@ -396,6 +397,12 @@ impl From<Command> for Element {
     }
 }
 
+impl From<Environment> for Element {
+    fn from(other: Environment) -> Self {
+        Element::Environment(other)
+    }
+}
+
 impl<S, I> From<(S, I)> for Element
 where
     S: AsRef<str>,
@@ -406,10 +413,12 @@ where
     /// `Element::Environment`.
     fn from(other: (S, I)) -> Self {
         let (name, lines) = other;
-        Element::Environment(
-            name.as_ref().to_string(),
+        Element::Environment(Environment::new(
+            name.as_ref(),
             lines.into_iter().map(|s| s.as_ref().to_string()).collect(),
-        )
+            None,
+            None,
+        ))
     }
 }
 
@@ -430,13 +439,7 @@ impl Writable for Element {
             Element::UserDefined(ref s) => writeln!(writer, "{}", s)?,
             Element::Align(ref p) => p.write_to(writer)?,
 
-            Element::Environment(ref name, ref lines) => {
-                writeln!(writer, r"\begin{{{}}}", name)?;
-                for line in lines {
-                    writeln!(writer, "{}", line)?;
-                }
-                writeln!(writer, r"\end{{{}}}", name)?;
-            }
+            Element::Environment(ref env) => env.write_to(writer)?,
             Element::List(ref list) => list.write_to(writer)?,
             Element::Input(ref s) => writeln!(writer, "\\input{{{}}}", s)?,
 
