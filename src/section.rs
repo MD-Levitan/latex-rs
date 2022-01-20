@@ -188,7 +188,7 @@ impl Writable for Container {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
 
     use crate::{section::*, TextElement};
     use crate::{Latex, Writable};

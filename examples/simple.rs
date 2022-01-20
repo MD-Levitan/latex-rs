@@ -1,6 +1,6 @@
 extern crate latex;
 
-use latex::{print, Document, DocumentClass, Element, Section};
+use latex::{print, Command, Document, DocumentClass, Section};
 
 fn create_document() -> Document {
     let mut doc = Document::new(DocumentClass::Article);
@@ -9,10 +9,10 @@ fn create_document() -> Document {
     doc.preamble.title("My Fancy Document");
     doc.preamble.author("Michael-F-Bryan");
 
-    doc.push(Element::TitlePage)
-        .push(Element::ClearPage)
-        .push(Element::TableOfContents)
-        .push(Element::ClearPage);
+    doc.push(Command::TitlePage)
+        .push(Command::ClearPage)
+        .push(Command::TableOfContents)
+        .push(Command::ClearPage);
 
     let mut section_1 = Section::new("Section 1");
     section_1

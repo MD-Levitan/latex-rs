@@ -1,7 +1,7 @@
 extern crate latex;
 
 use latex::{
-    print, Align, AlignEquation, Document, DocumentClass, Element, Latex, List, ListKind, Section,
+    print, Align, AlignEquation, Command, Document, DocumentClass, List, ListKind, Section,
 };
 
 // const COMPLEX: &'static str = include_str!("complex.tex");
@@ -17,10 +17,10 @@ fn create_document() -> Document {
         .use_package("amsmath")
         .use_package("parskip");
 
-    doc.push(Element::TitlePage)
-        .push(Element::ClearPage)
-        .push(Element::TableOfContents)
-        .push(Element::ClearPage)
+    doc.push(Command::TitlePage)
+        .push(Command::ClearPage)
+        .push(Command::TableOfContents)
+        .push(Command::ClearPage)
         .push(first_section());
 
     doc

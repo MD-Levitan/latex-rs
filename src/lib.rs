@@ -21,7 +21,7 @@
 //! a table of contents, some equations, and two sections.
 //!
 //! ```rust
-//! use latex::{DocumentClass, Element, Document, Section, Align};
+//! use latex::{DocumentClass, Element, Document, Section, Align, Command};
 //!
 //! # fn run() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut doc = Document::new(DocumentClass::Article);
@@ -30,10 +30,10 @@
 //! doc.preamble.title("My Fancy Document");
 //! doc.preamble.author("Michael-F-Bryan");
 //!
-//! doc.push(Element::TitlePage)
-//!     .push(Element::ClearPage)
-//!     .push(Element::TableOfContents)
-//!     .push(Element::ClearPage);
+//! doc.push(Command::TitlePage)
+//!     .push(Command::ClearPage)
+//!     .push(Command::TableOfContents)
+//!     .push(Command::ClearPage);
 //!
 //! let mut section_1 = Section::new("Section 1");
 //! section_1.push("Here is some text which will be put in paragraph 1.")
@@ -104,13 +104,14 @@
 
 #![deny(missing_docs)]
 
+mod commands;
 mod document;
 mod equations;
 mod lists;
 mod section;
 mod text;
-//mod visitor;
 
+pub use commands::*;
 pub use document::{Document, DocumentClass, Element, Preamble, PreambleElement};
 pub use equations::{Align, AlignEquation, Equation};
 pub use lists::{Item, List, ListKind};

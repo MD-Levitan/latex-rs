@@ -2,6 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::ops::Deref;
 use std::slice::Iter;
 
+use commands::Command;
 use equations::Align;
 use lists::List;
 use section::{
@@ -288,6 +289,8 @@ impl Writable for Preamble {
     }
 }
 
+pub trait Test: std::fmt::Debug + PartialEq {}
+
 /// The major elements in a `Document`, representing each type of possible
 /// node.
 ///
@@ -330,12 +333,9 @@ pub enum Element {
     /// it can be used just for storing Elements
     Container(Container),
 
-    /// The table of contents.
-    TableOfContents,
-    /// The title page.
-    TitlePage,
-    /// Clear the page.
-    ClearPage,
+    /// One-line command
+    Command(Command),
+
     /// An `align` environment for containing a bunch of equations.
     Align(Align),
 
@@ -390,6 +390,12 @@ impl From<Section> for Element {
     }
 }
 
+impl From<Command> for Element {
+    fn from(other: Command) -> Self {
+        Element::Command(other)
+    }
+}
+
 impl<S, I> From<(S, I)> for Element
 where
     S: AsRef<str>,
@@ -420,9 +426,7 @@ impl Writable for Element {
             Element::Subparagraph(ref p) => p.write_to(writer)?,
             Element::Container(ref p) => p.write_to(writer)?,
 
-            Element::TableOfContents => writeln!(writer, r"\tableofcontents")?,
-            Element::TitlePage => writeln!(writer, r"\maketitle")?,
-            Element::ClearPage => writeln!(writer, r"\clearpage")?,
+            Element::Command(ref command) => command.write_to(writer)?,
             Element::UserDefined(ref s) => writeln!(writer, "{}", s)?,
             Element::Align(ref p) => p.write_to(writer)?,
 

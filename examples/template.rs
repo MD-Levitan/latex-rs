@@ -1,13 +1,13 @@
 extern crate latex;
 
-use latex::{print, Document, DocumentClass, Element, Section};
+use latex::{print, Command, Document, DocumentClass, Element, Section};
 
 fn create_document() -> Document {
     let mut doc = Document::new(DocumentClass::Article);
     doc.preamble.title("Template document");
     doc.preamble.author("Henrik");
 
-    doc.push(Element::TitlePage).push(Element::ClearPage);
+    doc.push(Command::TitlePage).push(Command::ClearPage);
     doc
 }
 
