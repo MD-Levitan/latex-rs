@@ -4,22 +4,36 @@ use self::doc_comment::doc_comment;
 use crate::{Text, Writable};
 
 macro_rules! create_commands {
-    (@format ($writter:expr, $self:expr) {$name:ident}) => {
-        write!($writter, "{{{}}}", $self.$name)?;
+        // format params: param
+        (@format ($writter:expr, $self:expr) $name:ident) => {
+            write!($writter, "{}", $self.$name)?;
+        };
+        // format params: {param}
+        (@format ($writter:expr, $self:expr) {$name:ident}) => {
+            write!($writter, "{{{}}}", $self.$name)?;
         };
 
+        // format params: [param]
         (@format ($writter:expr, $self:expr) [$name:ident]) => {
-            write!($writter, "[{}]", $self.$name)?;
+            if let Some(value) = &$self.$name
+            {
+                write!($writter, "[{}]", value)?;
+            }
         };
 
+        // format params: [param1, param2]
         (@format ($writter:expr, $self:expr) [$($name:ident),+]) => {
             write!($writter, "[")?;
             $(
-                write!($writter, "{},", $self.$name)?;
+                if let Some(value) = &$self.$name
+                {
+                    write!($writter, "{},", value)?;
+                }
             )+
             write!($writter, "]")?;
         };
 
+        // format params: {param1, param2}
         (@format ($writter:expr, $self:expr) {$($name:ident),+}) => {
             write!($writter, "{")?;
             $(
@@ -121,6 +135,12 @@ macro_rules! create_commands {
                 }
             }
 
+            impl From<$command_name> for Command {
+                fn from(other: $command_name) -> Self {
+                    Command::$command_name(other)
+                }
+            }
+
 
             )+
         };
@@ -129,13 +149,51 @@ macro_rules! create_commands {
 create_commands!(
     (Label, "label", { label: String }, {label}),
     (Ref, "ref", { text: String }, {text}),
-    (Framebox, "framebox", {text:Text, size:String, pos:String}, [size][pos]{text});
+    (Bibitem, "bibitem", {text: Text, cite: String}, {cite}text),
+    (Bibliographystyle, "bibliographystyle", {style: String}, {style}),
+    (Bibliography, "bibliography", {file: String}, {file}),
+    (Cite, "cite", { reference: String, subcit: Option<Text> }, [subcit]{reference}),
+    (Framebox, "framebox", {text:Text, size:Option<String>, pos:Option<String>}, [size][pos]{text});
     (TableOfContents, "tableofcontents"),
     (TitlePage, "maketitle"),
     (ClearPage, "clearpage"),
     (BigSkip, "bigskip"),
-    (NewPage, "newpage")
+    (NewPage, "newpage"),
+    (Appendix, "appendix")
 );
+
+impl Label {
+    /// Generate `Label` from `object_type` and `object_name`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use latex::Label;
+    /// let label = Label::generate_default_label("subsection", "Introduction");
+    ///
+    /// ```
+    ///
+    /// Result in latex:
+    ///
+    /// ```tex
+    /// \label{subsection:introduction}
+    /// ```
+    pub fn generate_default_label(object_type: &str, object_name: &str) -> Label {
+        Label::new(format!("{}:{}", object_type, object_name.to_lowercase()))
+    }
+
+    /// Get reference(`Ref`) from `Label`
+    pub fn get_ref(&self) -> Ref {
+        Ref::new(self.label.clone())
+    }
+}
+
+impl Bibitem {
+    /// Get reference(`Cite`) from `Bibitem`
+    pub fn get_ref(&self) -> Cite {
+        Cite::new(self.cite.clone(), None)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -150,6 +208,44 @@ mod tests {
     }
 
     #[test]
+    fn render_bibliography() {
+        let should_be = "\\bibliography{some_file.txt}\n";
+
+        let command = Bibliography::new("some_file.txt".to_owned());
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_bibliographystyle() {
+        let should_be = "\\bibliographystyle{plain}\n";
+
+        let command = Bibliographystyle::new("plain".to_owned());
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_bibitem() {
+        let should_be = "\\bibitem{key1}\\textbf{Some Book}\n";
+
+        let command = Bibitem::new(TextElement::bold("Some Book").into(), "key1".to_string());
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_get_cite() {
+        let should_be = "\\cite{key1}\n";
+        let command: Command =
+            Bibitem::new(TextElement::bold("Some Book").into(), "key1".to_string())
+                .get_ref()
+                .into();
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
     fn render_simple_label() {
         let should_be = "\\label{some label}\n";
         let command: Command = Command::Label(Label::new("some label".into()));
@@ -158,12 +254,31 @@ mod tests {
     }
 
     #[test]
+    fn render_gen_label() {
+        let should_be = "\\label{subsection:introduction}\n";
+        let command: Command =
+            Command::Label(Label::generate_default_label("subsection", "Introduction"));
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_get_refer() {
+        let should_be = "\\ref{subsection:introduction}\n";
+        let command: Command = Label::generate_default_label("subsection", "Introduction")
+            .get_ref()
+            .into();
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
     fn render_simple_framebox() {
-        let should_be = "\\framebox[1][2]{some framebox}\n";
+        let should_be = "\\framebox[30pc][l]{some framebox}\n";
         let command: Command = Command::Framebox(Framebox::new(
             "some framebox".into(),
-            "1".to_owned(),
-            "2".to_owned(),
+            Some("30pc".to_owned()),
+            Some("l".to_owned()),
         ));
 
         test_element(&[&command], should_be)
@@ -175,8 +290,11 @@ mod tests {
         let mut text = Text::new();
         text.push(TextElement::bold("some bold framebox"));
 
-        let command: Command =
-            Command::Framebox(Framebox::new(text, "30pc".to_owned(), "l".to_owned()));
+        let command: Command = Command::Framebox(Framebox::new(
+            text,
+            Some("30pc".to_owned()),
+            Some("l".to_owned()),
+        ));
 
         test_element(&[&command], should_be)
     }
@@ -217,6 +335,14 @@ mod tests {
     fn render_table_newpage() {
         let should_be = "\\newpage\n";
         let command: Command = Command::NewPage;
+
+        test_element(&[&command], should_be)
+    }
+
+    #[test]
+    fn render_table_appendix() {
+        let should_be = "\\appendix\n";
+        let command: Command = Command::Appendix;
 
         test_element(&[&command], should_be)
     }

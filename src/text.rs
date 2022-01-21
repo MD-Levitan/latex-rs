@@ -80,6 +80,14 @@ impl<'a> From<&'a str> for Text {
     }
 }
 
+impl From<TextElement> for Text {
+    fn from(other: TextElement) -> Text {
+        let mut text = Text::new();
+        text.push(other);
+        text
+    }
+}
+
 /// The various Text elements.
 ///
 /// For convenience, you can convert from a string to a `TextElement`

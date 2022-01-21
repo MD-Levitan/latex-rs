@@ -39,20 +39,20 @@ generating your `LaTeX` documents:
 
 - [x] Preamble
 - [x] Sections
-- [x] Paragraphs
+- [x] Text
 - [x] Align environment and Equations
 - [x] Lists (both numbered and not)
 - [x] Table of contents, title page, and the `\clearpage` command
 - [ ] Figures
 - [ ] Tables
-- [ ] Appendices
+- [x] Appendices
 - [ ] Included PDF files
 - [ ] `\include{...}`
 - [x] `\input{...}`
 - [x] Partial documents
 - [ ] References and Bibliography
-- [ ] labels, plus `\ref{...}` for referencing them
-
+- [x] Labels and `\ref{...}` for referencing them
+- [ ] Add more examples    
 
 ## Contributing
 
