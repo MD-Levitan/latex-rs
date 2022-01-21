@@ -1,12 +1,22 @@
+extern crate doc_comment;
+
+use self::doc_comment::doc_comment;
 use crate::Writable;
 
 macro_rules! create_commands {
     ($(($command_name:ident, $command_tex:literal)), +) => {
-        /// One-line command
+        doc_comment! {
+
+        concat!("`Command` - represent all one-line commands without params.\n\n",
+        $(
+    "`Command::", stringify!($command_name), "`- command for `\\", $command_tex ,"` latex.\n\n",
+        )+
+    ),
+
+        #[allow(missing_docs)]
         #[derive(Debug, Clone, PartialEq)]
         pub enum Command {
             $(
-                /// Commands
                 $command_name,
             )+
 
@@ -20,6 +30,7 @@ macro_rules! create_commands {
                 }
             }
         }
+    }
     };
 }
 

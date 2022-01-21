@@ -117,7 +117,7 @@ pub use document::{Document, DocumentClass, Element, Preamble, PreambleElement};
 pub use enviroment::Environment;
 pub use equations::{Align, AlignEquation, Equation};
 pub use lists::{Item, List, ListKind};
-pub use section::{Chapter, Container, Part, Section, SectionElement, Subsection, Subsubsection};
+pub use section::{Chapter, Container, Part, Section, Subsection, Subsubsection};
 pub use text::{Text, TextElement};
 
 use std::io::{Error, Write};

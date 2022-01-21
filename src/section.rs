@@ -1,3 +1,7 @@
+extern crate doc_comment;
+
+use self::doc_comment::doc_comment;
+
 use document::Element;
 use std::{io::Error, io::Write, slice::Iter};
 use text::Text;
@@ -5,7 +9,7 @@ use text::Text;
 use crate::Writable;
 
 /// A trait to represent all types of Section
-pub trait SectionElement {
+trait SectionElement {
     /// Get if element is numbered
     fn numbered(&self) -> bool;
     /// Iterate throw elements
@@ -16,6 +20,8 @@ pub trait SectionElement {
     fn get_name(&self) -> &Text;
     /// Get name of section
     fn get_section_name(&self) -> &str;
+    /// Get toctitle of section
+    fn get_toctitle(&self) -> &Option<Text>;
 }
 
 fn visit_sectioning_element<T: SectionElement, W: Write>(
@@ -23,15 +29,22 @@ fn visit_sectioning_element<T: SectionElement, W: Write>(
     section: &T,
 ) -> Result<(), Error> {
     // Write declaration of element
-    write!(
-        writer,
-        r"\{}{}{{",
-        section.get_section_name(),
-        match section.numbered() {
-            true => "",
-            false => "*",
+    match section.numbered() {
+        true => {
+            write!(writer, r"\{}", section.get_section_name())?;
+            if let Some(toctitle) = section.get_toctitle() {
+                write!(writer, "[")?;
+                toctitle.write_to(writer)?;
+                write!(writer, "]{{")?;
+            } else {
+                write!(writer, "{{")?;
+            }
         }
-    )?;
+
+        false => {
+            write!(writer, r"\{}*{{", section.get_section_name())?;
+        }
+    }
 
     section.get_name().write_to(writer)?;
     writeln!(writer, "}}")?;
@@ -49,11 +62,13 @@ fn visit_sectioning_element<T: SectionElement, W: Write>(
 
 macro_rules! create_section_type {
     ($section_name:ident, $section_tex:literal) => {
-        /// A document SectionElement.
-        ///
-        /// Like the `Document` type, a `$section_tex` is more or less just a collection of
-        /// `Element`s. When rendered it will start with `\$section_tex{Section Name}` and
-        /// then each element will be rendered in turn.
+        doc_comment! {
+
+        concat!(
+            "`", stringify!($section_name), "` - a sectioning element that rendered as - `\\", $section_tex,
+            "[toctitle]{text}` or `\\", $section_tex, "*{text}`.\n\n", "Like the `Document` type, it is more or less just a collection of `Element`s. \n"
+        ),
+
         #[derive(Clone, Debug, Default, PartialEq)]
         pub struct $section_name {
             /// The name of the section.
@@ -62,6 +77,8 @@ macro_rules! create_section_type {
             elements: Vec<Element>,
             /// Type of section
             sectioning_name: String,
+            /// `Toctitle` - ontains entry for the table of contents if different from text.
+            toctitle: Option<Text>,
             /// Numbered section
             pub numbered: bool,
         }
@@ -73,6 +90,7 @@ macro_rules! create_section_type {
                     name: Text::from(name),
                     elements: Default::default(),
                     sectioning_name: $section_tex.to_owned(),
+                    toctitle: None,
                     numbered: true,
                 }
             }
@@ -83,8 +101,16 @@ macro_rules! create_section_type {
                     name: name,
                     elements: Default::default(),
                     sectioning_name: $section_tex.to_owned(),
+                    toctitle: None,
                     numbered: true,
                 }
+            }
+
+            /// Set `toctitle` that contains entry for the table of contents
+            pub fn set_toctitle<T: Into<Text>>(&mut self, titile: T) -> &mut Self
+            {
+                self.toctitle = Some(titile.into());
+                self
             }
 
             /// Add an element to the Section.
@@ -110,6 +136,11 @@ macro_rules! create_section_type {
                 &self.sectioning_name
             }
 
+            fn get_toctitle(&self) -> &Option<Text>
+            {
+                &self.toctitle
+            }
+
             /// Iterate over the elements in this list.
             fn iter(&self) -> Iter<Element> {
                 self.elements.iter()
@@ -126,6 +157,7 @@ macro_rules! create_section_type {
                 visit_sectioning_element(writer, self)
             }
         }
+    }
     };
 }
 
@@ -251,6 +283,22 @@ Hello World!
         let mut section = Section::new("First Section");
         section.numbered = false;
         section.push("Lorem Ipsum...").push("Hello World!");
+
+        test_element(&[&section], should_be)
+    }
+
+    #[test]
+    fn section_with_toctitle() {
+        let should_be = r#"\section[Not First Section]{First Section}
+Lorem Ipsum...
+Hello World!
+"#;
+
+        let mut section = Section::new("First Section");
+        section
+            .set_toctitle("Not First Section")
+            .push("Lorem Ipsum...")
+            .push("Hello World!");
 
         test_element(&[&section], should_be)
     }

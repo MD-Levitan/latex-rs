@@ -5,7 +5,7 @@ use std::slice::Iter;
 ///
 /// # Note
 ///
-/// A text in previous version was `Text`.
+/// A text in previous version was `Paragraph`.
 ///
 /// # Examples
 ///
