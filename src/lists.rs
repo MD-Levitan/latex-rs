@@ -106,7 +106,7 @@ impl List {
         P: Into<Text>,
     {
         let mut container = Container::new();
-        container.push(Element::Text(Text::from(item.into())));
+        container.push(Element::Text(item.into()));
 
         self.items.push(Item(container));
         self
@@ -127,7 +127,7 @@ impl Writable for List {
         for item in self.iter() {
             write!(writer, "\\item ")?;
             (**item).write_to(writer)?;
-            write!(writer, "\n")?;
+            writeln!(writer)?;
         }
 
         writeln!(writer, r"\end{{{}}}", env)?;

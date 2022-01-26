@@ -76,12 +76,12 @@ impl Writable for Equation {
             }
         );
 
-        write!(writer, "\\begin{{{}}}\n", &eq)?;
+        writeln!(writer, "\\begin{{{}}}", &eq)?;
         if let Some(ref label) = self.label {
-            write!(writer, "\\label{{{}}}\n", label.as_str())?;
+            writeln!(writer, "\\label{{{}}}", label.as_str())?;
         }
-        write!(writer, "{}\n", &self.text)?;
-        write!(writer, "\\end{{{}}}\n", &eq)?;
+        writeln!(writer, "{}", &self.text)?;
+        writeln!(writer, "\\end{{{}}}", &eq)?;
 
         Ok(())
     }
@@ -262,13 +262,13 @@ impl Writable for Align {
             }
         );
 
-        write!(writer, "\\begin{{{}}}\n", &eq)?;
+        writeln!(writer, "\\begin{{{}}}", &eq)?;
 
         for e in self.items.iter() {
             write_equation(writer, e, self.numbered)?;
         }
 
-        write!(writer, "\\end{{{}}}\n", &eq)?;
+        writeln!(writer, "\\end{{{}}}", &eq)?;
 
         Ok(())
     }

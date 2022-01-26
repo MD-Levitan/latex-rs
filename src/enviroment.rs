@@ -185,11 +185,11 @@ impl Writable for Environment {
         if !self.optional_params.is_empty() {
             write!(writer, "[{}]", self.optional_params.join(","))?;
         }
-        write!(writer, "\n")?;
+        writeln!(writer)?;
 
         for elem in &self.elements {
             elem.write_to(writer)?;
-            write!(writer, "\n")?;
+            writeln!(writer)?;
         }
         writeln!(writer, r"\end{{{}}}", self.enving_name)
     }
